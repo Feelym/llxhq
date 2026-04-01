@@ -1,37 +1,4 @@
-// 域名验证
-(function() {
-    const allowedDomains = ['zyooo.com', '145555.xyz', 'localhost', '127.0.0.1'];
-    const currentHost = window.location.hostname.toLowerCase();
 
-    const isAllowed = allowedDomains.some(domain => currentHost.includes(domain));
-
-    if (!isAllowed) {
-        document.body.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#fff;font-family:sans-serif;text-align:center;padding:20px;">
-                <h1 style="color:#ff4757;margin-bottom:20px;">⚠️ 警告</h1>
-                <p style="font-size:1.2rem;margin-bottom:10px;">不要盗用代码，都是AI写的，你自己去写。</p>
-                <p style="color:#4a7dff;font-size:1.1rem;">shua.zyooo.com</p>
-                <p style="margin-top:20px;color:#666;">页面将在 <span id="countdown">5</span> 秒后关闭...</p>
-            </div>
-        `;
-
-        let seconds = 5;
-        const timer = setInterval(() => {
-            seconds--;
-            const countdownEl = document.getElementById('countdown');
-            if (countdownEl) countdownEl.textContent = seconds;
-
-            if (seconds <= 0) {
-                clearInterval(timer);
-                window.close();
-                // 如果无法关闭，跳转到正版网站
-                window.location.href = 'https://shua.ssooo.cn';
-            }
-        }, 1000);
-
-        throw new Error('Unauthorized domain');
-    }
-})();
 
 // 配置变量（从API加载）
 let MAX_THREADS = 32;
