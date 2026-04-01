@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>流量消耗器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260210c">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container" id="screenshotArea">
+        <div class="header">
+            <h1 id="siteTitle">流量消耗器</h1>
+            <div class="header-actions">
+                <button class="icon-btn" onclick="resetStats()" title="重置统计">
+                    <span>🔄</span>
+                </button>
+                <button class="icon-btn" onclick="takeScreenshot()" title="截图分享">
+                    <span>📸</span>
+                </button>
+                <button class="icon-btn" onclick="toggleTheme()" title="切换主题">
+                    <span id="themeIcon">🌙</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="form-group">
+                <label class="form-label">选择测速源</label>
+                <select id="sourceSelect" class="form-select" onchange="onSourceChange()">
+                    <option value="">-- 加载中... --</option>
+                </select>
+            </div>
+
+            <div id="customLinkGroup" class="form-group custom-link hidden">
+                <label class="form-label">自定义链接</label>
+                <input type="text" id="customLink" class="form-input" placeholder="输入下载链接 (http/https)">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">运行线程 (1-<span id="maxThreadsLabel">32</span>)</label>
+                <div class="thread-control">
+                    <button class="thread-btn" onclick="changeThread(-1)">−</button>
+                    <input type="number" id="threadCount" class="form-input thread-input" value="1" min="1" max="32">
+                    <button class="thread-btn" onclick="changeThread(1)">+</button>
+                </div>
+            </div>
+
+            <button id="actionBtn" class="btn btn-primary" onclick="toggleAction()">
+                开始运行
+            </button>
+
+            <div id="statusText" class="status stopped">已停止</div>
+        </div>
+
+        <!-- 截图区域开始 -->
+        <div id="captureArea">
+            <div class="card" id="statsCard">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">已消耗流量</div>
+                        <div class="stat-value" id="totalData">0 B</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">实时速度</div>
+                        <div class="stat-value speed" id="currentSpeed">0 B/s</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">实时速率</div>
+                        <div class="stat-value speed" id="currentMbps">0 Mbps</div>
+                    </div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+
+                <div class="limit-setting">
+                    <span>流量上限:</span>
+                    <input type="number" id="limitInput" placeholder="不限制" min="0" step="0.1">
+                    <span>GB</span>
+                    <button class="thread-btn" style="width:60px;font-size:0.8rem;" onclick="setLimit()">设置</button>
+                </div>
+
+                <div class="watermark" id="watermark">
+                    流量消耗器
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">网络信息</div>
+                <div class="ip-info-grid" id="ipInfoGrid">
+                    <div class="ip-info-item" id="domesticIpItem">
+                        <div class="ip-info-label">
+                            <span class="flag">🇨🇳</span> 国内出口
+                        </div>
+                        <div class="ip-info-value" id="domesticIp">
+                            <span class="ip-loading">检测中...</span>
+                        </div>
+                        <div class="ip-info-location" id="domesticLocation"></div>
+                    </div>
+                    <div class="ip-info-item" id="foreignIpItem">
+                        <div class="ip-info-label">
+                            <span class="flag">🌍</span> 国外出口
+                        </div>
+                        <div class="ip-info-value" id="foreignIp">
+                            <span class="ip-loading">检测中...</span>
+                        </div>
+                        <div class="ip-info-location" id="foreignLocation"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">实时监控</div>
+                <div id="realtimeChart" class="chart-container"></div>
+            </div>
+        </div>
+        <!-- 截图区域结束 -->
+
+        <div class="card">
+            <div class="info-text">
+                <strong>使用说明：</strong><br>
+                1. 选择一个测速源或输入自定义链接<br>
+                2. 设置运行线程数（手机建议10以内）<br>
+                3. 点击"开始运行"即可消耗流量<br>
+                4. 可设置流量上限，达到后自动停止<br>
+                <br>
+                <strong>提示：</strong>如有定向流量，选择对应的测速源可测试定向流量消耗。
+            </div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <span>流量消耗器</span>
+        <span class="footer-dot">·</span>
+        <span>Shua.SSOOO.CN</span>
+    </footer>
+
+    <!-- 主应用脚本 -->
+    <script src="assets/js/app.js?v=20260317c"></script>
+</body>
+</html>
