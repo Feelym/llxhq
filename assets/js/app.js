@@ -70,7 +70,7 @@ async function loadInitData() {
             // 加载用户设置（在API数据加载后）
             loadUserSettings();
 
-            console.log('Init data loaded:', { MAX_THREADS, DEFAULT_THREADS, SITE_TITLE });
+            // Config loaded successfully
         } else {
             throw new Error(result.message || '加载失败');
         }
@@ -550,13 +550,21 @@ function showToast(type, title, message, duration = 3000) {
         info: 'ℹ️'
     };
 
-    toast.innerHTML = `
-        <div class="toast-icon">${icons[type] || icons.info}</div>
-        <div class="toast-content">
-            <div class="toast-title">${title}</div>
-            <div class="toast-message">${message}</div>
-        </div>
-    `;
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'toast-icon';
+    iconDiv.textContent = icons[type] || icons.info;
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'toast-content';
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'toast-title';
+    titleDiv.textContent = title;
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'toast-message';
+    msgDiv.textContent = message;
+    contentDiv.appendChild(titleDiv);
+    contentDiv.appendChild(msgDiv);
+    toast.appendChild(iconDiv);
+    toast.appendChild(contentDiv);
 
     container.appendChild(toast);
 

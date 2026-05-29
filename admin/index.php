@@ -1,6 +1,10 @@
 <?php
 session_start();
 
+header('X-Frame-Options: DENY');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 // 使用 SQLite 数据库
 require_once dirname(__DIR__) . '/database.php';
 $db = Database::getInstance();
@@ -10,18 +14,61 @@ function isLoggedIn() {
     return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
 }
 
+// CSRF token helpers
+function generateCsrfToken() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function verifyCsrfToken($token) {
+    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+
+// Rate limiting for login (file-based, per-IP)
+function checkLoginRateLimit() {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $lockFile = sys_get_temp_dir() . '/login_attempts_' . md5($ip) . '.json';
+    $maxAttempts = 5;
+    $windowSeconds = 300; // 5 minutes
+
+    $attempts = [];
+    if (file_exists($lockFile)) {
+        $attempts = json_decode(file_get_contents($lockFile), true) ?: [];
+    }
+
+    $now = time();
+    $attempts = array_filter($attempts, fn($t) => ($now - $t) < $windowSeconds);
+
+    if (count($attempts) >= $maxAttempts) {
+        return false;
+    }
+
+    $attempts[] = $now;
+    file_put_contents($lockFile, json_encode(array_values($attempts)));
+    return true;
+}
+
 // 处理 API 请求
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
 
     if ($_POST['action'] === 'login') {
+        if (!checkLoginRateLimit()) {
+            echo json_encode(['success' => false, 'message' => '登录尝试过于频繁，请5分钟后再试']);
+            exit;
+        }
+
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
 
         if ($db->verifyAdmin($username, $password)) {
+            session_regenerate_id(true);
             $_SESSION['admin_logged_in'] = true;
             $_SESSION['admin_username'] = $username;
-            echo json_encode(['success' => true]);
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            echo json_encode(['success' => true, 'csrf_token' => $_SESSION['csrf_token']]);
         } else {
             echo json_encode(['success' => false, 'message' => '用户名或密码错误']);
         }
@@ -31,6 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     // 以下操作需要登录
     if (!isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => '未登录']);
+        exit;
+    }
+
+    // Verify CSRF token for all authenticated actions
+    $csrf = $_POST['csrf_token'] ?? '';
+    if (!verifyCsrfToken($csrf)) {
+        echo json_encode(['success' => false, 'message' => 'CSRF token 无效，请刷新页面重试']);
         exit;
     }
 
@@ -145,6 +199,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             if (empty($name) || empty($url)) {
                 echo json_encode(['success' => false, 'message' => '名称和链接不能为空']);
+            } elseif (!preg_match('/^https?:\/\//i', $url)) {
+                echo json_encode(['success' => false, 'message' => '链接必须以 http:// 或 https:// 开头']);
             } elseif ($db->addSource($name, $url, $groupId)) {
                 echo json_encode(['success' => true]);
             } else {
@@ -161,6 +217,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             if (empty($name) || empty($url)) {
                 echo json_encode(['success' => false, 'message' => '名称和链接不能为空']);
+            } elseif (!preg_match('/^https?:\/\//i', $url)) {
+                echo json_encode(['success' => false, 'message' => '链接必须以 http:// 或 https:// 开头']);
             } elseif ($db->updateSource($id, $name, $url, $groupId, $enabled)) {
                 echo json_encode(['success' => true]);
             } else {
@@ -802,12 +860,19 @@ $loggedIn = isLoggedIn();
 
     <script>
         // Toast 提示
+        let csrfToken = '';
+
         function showToast(type, message, duration = 3000) {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            const icons = { success: '✓', error: '✗', warning: '!', info: 'i' };
-            toast.innerHTML = `<span>${icons[type] || icons.info}</span><span>${message}</span>`;
+            const icons = { success: '\u2713', error: '\u2717', warning: '!', info: 'i' };
+            const iconSpan = document.createElement('span');
+            iconSpan.textContent = icons[type] || icons.info;
+            const msgSpan = document.createElement('span');
+            msgSpan.textContent = message;
+            toast.appendChild(iconSpan);
+            toast.appendChild(msgSpan);
             container.appendChild(toast);
             setTimeout(() => {
                 toast.classList.add('hide');
@@ -819,6 +884,9 @@ $loggedIn = isLoggedIn();
         async function api(action, data = {}) {
             const formData = new FormData();
             formData.append('action', action);
+            if (csrfToken) {
+                formData.append('csrf_token', csrfToken);
+            }
             for (const key in data) {
                 formData.append(key, data[key]);
             }
@@ -835,6 +903,7 @@ $loggedIn = isLoggedIn();
                 password: form.password.value
             });
             if (result.success) {
+                csrfToken = result.csrf_token || '';
                 showToast('success', '登录成功');
                 document.getElementById('loginPage').style.display = 'none';
                 document.getElementById('adminPage').style.display = 'flex';
@@ -1177,6 +1246,7 @@ $loggedIn = isLoggedIn();
 
         // 初始化
         <?php if ($loggedIn): ?>
+        csrfToken = <?= json_encode(generateCsrfToken()) ?>;
         loadGroups();
         loadSources();
         loadSettings();
